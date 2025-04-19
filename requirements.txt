@@ -1,0 +1,7 @@
+pandas>=2.2
+polars>=0.20
+numpy>=1.26
+scipy>=1.13
+ccxt>=4.2
+backtrader>=1.9
+pyarrow>=16
