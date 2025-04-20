@@ -1,8 +1,14 @@
-DATA_DIR  := "data"
-START_TS  := "1743292800000"   # 2025‑04‑30
-END_TS    := "1743379200000"   # 2025‑04‑31
-SYMBOL    := "BTC/USDT"
-TEAM      := "alpha"
+DATA        := "data"
+START_TS    := "1743292800000"   # 2025‑04‑30
+END_TS      := "1743379200000"   # 2025‑04‑31
+SYMBOL      := "BTC/USDT"
+TEAM        := "alpha"
+TIMEFRAME   := "1m"
+
+# Convert symbol format for filename (BTC/USDT -> btcusdt)
+SYMBOL_FILE := replace(lowercase(SYMBOL), "/", "")
+STRATEGY    := TEAM + "_submission.tgz"
+MARKET_DATA := DATA + "/" + SYMBOL_FILE + "_" + TIMEFRAME + ".parquet"
 
 # print options
 default:
@@ -14,6 +20,7 @@ alias d := download
 alias t := tar
 alias s := score
 alias c := clean
+alias p := print
 
 # install Python requirements
 install:
@@ -34,9 +41,15 @@ tar:
 
 # score with Python the strategy
 score:
-    FILE="{{TEAM}}_submission.tgz" \
-    DATA="{{DATA_DIR}}/$(echo '{{SYMBOL}}' | tr '[:upper:]' '[:lower:]' | tr -d '/')_1m.parquet" \
-    python -m exchange.engine "$FILE" --data "$DATA"
+    python -m exchange.engine {{STRATEGY}} --data {{MARKET_DATA}}
+
+# print current configuration
+print:
+    @echo "Symbol: {{SYMBOL}}"
+    @echo "Timeframe: {{TIMEFRAME}}"
+    @echo "Input File: {{MARKET_DATA}}"
+    @echo "Team: {{TEAM}}"
+    @echo "Strategy: {{STRATEGY}}"
 
 # remove downloaded data and generated archives
 clean:

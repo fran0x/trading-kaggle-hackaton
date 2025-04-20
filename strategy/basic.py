@@ -1,4 +1,5 @@
 from collections import deque
+import numpy as np
 
 WINDOW = 30  # minutes
 THRESHOLD = 2.0  # std‑devs
@@ -10,7 +11,6 @@ def on_tick(market_data):
     prices.append(price)
     if len(prices) < WINDOW:
         return None
-    import numpy as np
     mu, sigma = np.mean(prices), np.std(prices)
     if price < mu - THRESHOLD * sigma:
         return {"side": "buy", "qty": 0.01}

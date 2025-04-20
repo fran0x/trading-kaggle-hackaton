@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Plug‑n‑play: chooses STRATEGY env‑var or defaults to example.
 STRATEGY = importlib.import_module(
-    (Path(__file__).parent / "basic.py").stem
+    "strategy.basic"  # Use fully qualified package name
 )
 
 def on_tick(market_data):
