@@ -2,13 +2,12 @@
 
 This document outlines the next steps for enhancing the Junz trading platform to support competitions, comprehensive evaluations, and visualization tools.
 
-## Code Audit and Optimization
+## Code Audit & Optimization
 
-- Conduct a thorough audit of the Python codebase for performance bottlenecks
-- Review error handling and edge cases for robustness
-- Optimize data processing routines for handling larger datasets
-- Ensure type hints are used consistently throughout the codebase
-- Add comprehensive test coverage for critical components
+- Audit Python for performance bottlenecks and robust error handling  
+- Streamline data routines for large datasets  
+- Standardize type hints and expand critical test coverage  
+- Add guidelines for using additional Python libraries
 
 ## Data Preparation
 

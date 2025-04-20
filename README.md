@@ -35,7 +35,7 @@ This project uses [just](https://github.com/casey/just) as a command runner for 
 ## Quick Start
 
 ```shell
-# Install dependencies
+# Install Python dependencies (recomended Python 3.11+ and virtual environment)
 just install
 
 # Download market data (defaults to ETH/USDT, BTC/USDT, ETH/BTC)
