@@ -10,6 +10,20 @@ Junz is a trading strategy evaluation framework that allows you to:
 - Evaluate performance with industry-standard metrics
 - Deploy strategies in a containerized environment
 
+## Project Structure
+
+The project is organized with the following key directories:
+
+- `exchange/` - Trading engine and backtest framework
+  - `engine.py` - Main backtesting engine that simulates market conditions
+- `strategy/` - Trading strategy implementation
+  - `main.py` - Entry point with the `on_data` function required by the engine
+  - Create your own `strategy.py` for custom strategy implementation
+- `data/` - Market data storage
+  - Downloaded market data stored as parquet files
+- `scripts/` - Utility scripts
+  - `download.py` - Data download utility
+
 ## Quick Start
 
 ```shell
@@ -29,10 +43,10 @@ just score
 just print
 ```
 
-## Evaluation Metrics
-
 <details>
-<summary>Click to expand Evaluation Metrics details</summary>
+<summary>Evaluation Metrics</summary>
+
+## Evaluation Metrics
 
 Strategies are evaluated using several key performance metrics:
 
@@ -126,11 +140,10 @@ The output has been reorganized for better readability, with metrics grouped log
 The score prioritizes risk-adjusted returns (70%) while penalizing drawdowns (20%) and excessive trading (10%).
 
 </details>
+<details>
+<summary>CMarket Data Processing</summary>
 
 ## Market Data Processing
-
-<details>
-<summary>Click to expand Market Data Processing details</summary>
 
 The trading engine processes market data with a sophisticated time-synchronized approach to ensure realistic multi-pair trading:
 
@@ -165,10 +178,11 @@ The trading engine processes market data with a sophisticated time-synchronized 
    }
    ```
 
-## Order Execution Model
-
+</details>
 <details>
-<summary>Click to expand Order Execution Model details</summary>
+<summary>Order Execution Model</summary>
+
+## Order Execution Model
 
 The trading engine simulates order execution with the following characteristics:
 
@@ -192,11 +206,10 @@ The trading engine simulates order execution with the following characteristics:
 7. **No Order Book**: There is no simulated order book or limit orders - trades execute against current market prices.
 
 </details>
+<details>
+<summary>Strategy Development</summary>
 
 ## Strategy Development
-
-<details>
-<summary>Click to expand Strategy Development details</summary>
 
 The Junz trading framework is designed for multi-asset strategies that can trade across multiple pairs simultaneously. This enables advanced techniques like triangular arbitrage and cross-market strategies.
 
@@ -311,28 +324,10 @@ def on_data(self, market_data, balances):
 The framework handles the time synchronization of data across all pairs, ensuring you have a consistent view of the market at each timestamp.
 
 </details>
-
-## Project Structure
-
-The project is organized with the following key directories:
-
-- `exchange/` - Trading engine and backtest framework
-  - `engine.py` - Main backtesting engine that simulates market conditions
-  
-- `strategy/` - Trading strategy implementation
-  - `main.py` - Entry point with the `on_data` function required by the engine
-  - Create your own `strategy.py` for custom strategy implementation
-
-- `data/` - Market data storage
-  - Downloaded market data stored as parquet files
-  
-- `scripts/` - Utility scripts
-  - `download.py` - Data download utility
-
-## Configuration
-
 <details>
-<summary>Click to expand Configuration details</summary>
+<summary>Trading Scenario Configuration</summary>
+
+## Trading Scenario Configuration
 
 Edit the `justfile` to customize:
 - Trading pairs (e.g., "ETH/USDT", "BTC/USDT", "ETH/BTC")
@@ -360,8 +355,6 @@ just score myteam ETH BTC USDT 100 10 500000 5
 just score myteam ETH BTC USDT 100 10 500000 10
 ```
 
-</details>
-
 Default values can be set in the justfile:
 ```
 # Default balances
@@ -372,13 +365,11 @@ FIAT_BALANCE    := "500000"  # Default USDT balance
 # Trading parameters
 FEE := "2"  # Default fee in basis points (2 = 0.02%)
 ```
-
 </details>
+<details>
+<summary>Docker Support</summary>
 
 ## Docker Support
-
-<details>
-<summary>Click to expand Docker Support details</summary>
 
 Build and run the containerized environment:
 ```shell
