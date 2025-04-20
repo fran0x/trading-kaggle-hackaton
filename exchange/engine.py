@@ -30,10 +30,19 @@ def run_backtest(submission_dir: Path, data: pd.DataFrame):
             broker.execute(action)
     equity_curve = np.array(broker.equity_history)
     rets = np.diff(equity_curve) / equity_curve[:-1]
+    initial_equity = equity_curve[0]
+    final_equity = equity_curve[-1]
+    absolute_pnl = final_equity - initial_equity
+    percentage_pnl = (absolute_pnl / initial_equity) * 100
+    
     return {
         "sharpe": sharpe(rets),
         "max_dd": max_drawdown(equity_curve),
         "turnover": broker.turnover,
+        "absolute_pnl": absolute_pnl,
+        "percentage_pnl": percentage_pnl,
+        "initial_equity": initial_equity,
+        "final_equity": final_equity,
         "equity_curve": equity_curve.tolist(),
     }
 
@@ -73,8 +82,54 @@ def main():
         with tarfile.open(args.submission) as tar:
             tar.extractall(path=td)
         res = run_backtest(Path(td) / "submission", pd.read_parquet(args.data))
-        score = 0.7 * res["sharpe"] - 0.2 * abs(res["max_dd"]) - 0.1 * (res["turnover"] / 1e6)
-        print(json.dumps({**res, "score": score}, indent=2))
+        
+        # Calculate score components
+        sharpe_component = 0.7 * res["sharpe"]
+        drawdown_component = 0.2 * abs(res["max_dd"])
+        turnover_component = 0.1 * (res["turnover"] / 1e6)
+        
+        # Calculate final score
+        score = sharpe_component - drawdown_component - turnover_component
+        
+        # Add score components to the results
+        res["score_components"] = {
+            "sharpe_contribution": sharpe_component,
+            "drawdown_penalty": drawdown_component,
+            "turnover_penalty": turnover_component
+        }
+        res["score"] = score
+        
+        # Create a copy of results without the equity curve for display
+        display_res = res.copy()
+        display_res.pop("equity_curve", None)
+        
+        # Create ordered dictionary with a logical grouping of metrics
+        ordered_res = {
+            # Top-level performance metric
+            "score": display_res.pop("score"),
+            
+            # PnL metrics
+            "pnl": {
+                "absolute": display_res.pop("absolute_pnl"),
+                "percentage": display_res.pop("percentage_pnl"),
+                "initial_equity": display_res.pop("initial_equity"),
+                "final_equity": display_res.pop("final_equity")
+            },
+            
+            # Risk-adjusted return
+            "sharpe": display_res.pop("sharpe"),
+            
+            # Risk metric
+            "max_drawdown": display_res.pop("max_dd"),
+            
+            # Trading activity
+            "turnover": display_res.pop("turnover"),
+            
+            # Score breakdown
+            "score_components": display_res.pop("score_components")
+        }
+        
+        print(json.dumps(ordered_res, indent=2))
 
 if __name__ == "__main__":
     main()
