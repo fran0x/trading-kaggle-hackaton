@@ -43,6 +43,8 @@ just score
 just print
 ```
 
+---
+
 <details>
 <summary>Evaluation Metrics</summary>
 
@@ -141,7 +143,7 @@ The score prioritizes risk-adjusted returns (70%) while penalizing drawdowns (20
 
 </details>
 <details>
-<summary>CMarket Data Processing</summary>
+<summary>Market Data Processing</summary>
 
 ## Market Data Processing
 
@@ -325,9 +327,9 @@ The framework handles the time synchronization of data across all pairs, ensurin
 
 </details>
 <details>
-<summary>Trading Scenario Configuration</summary>
+<summary>Scenario Configuration</summary>
 
-## Trading Scenario Configuration
+## Scenario Configuration
 
 Edit the `justfile` to customize:
 - Trading pairs (e.g., "ETH/USDT", "BTC/USDT", "ETH/BTC")
