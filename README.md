@@ -25,15 +25,14 @@ just tar
 # Run backtest and evaluate strategy
 just score
 
-# Custom settings (team name, tokens, initial balances, fee)
-# just score [team] [token1] [token2] [fiat] [token1_balance] [token2_balance] [fiat_balance] [fee]
-just score myteam SOL AVAX USDC 50 5 1000000 5
-
 # View default configuration
 just print
 ```
 
 ## Evaluation Metrics
+
+<details>
+<summary>Click to expand Evaluation Metrics details</summary>
 
 Strategies are evaluated using several key performance metrics:
 
@@ -42,13 +41,14 @@ Strategies are evaluated using several key performance metrics:
 | Metric | Description | Interpretation |
 |--------|-------------|----------------|
 | **Score** | Combined performance metric | Higher is better. Weighted combination of other metrics. |
-| **Sharpe Ratio** | Risk-adjusted return | Higher is better. Measures excess return per unit of risk. |
-| **Maximum Drawdown** | Largest peak-to-trough decline | Closer to zero is better. Represents worst-case scenario. |
 | **Profit and Loss (PnL)** | Absolute and percentage returns | Higher is better. Shows raw profitability. |
 | **HODL Comparison** | Performance vs buy-and-hold | Strategy should outperform HODL. |
-| **Trading Fees** | Total fees paid in FIAT | Lower is better. Direct cost of trading. |
-| **Trade Count** | Number of executed trades | Context-dependent. Shows trading frequency. |
-| **Turnover** | Total trading volume | Generally lower is better. Indicates trading frequency and costs. |
+| **Trading Metrics** | Collection of performance statistics | |
+| &nbsp;&nbsp;- Sharpe Ratio | Risk-adjusted return | Higher is better. Measures excess return per unit of risk. |
+| &nbsp;&nbsp;- Maximum Drawdown | Largest peak-to-trough decline | Closer to zero is better. Represents worst-case scenario. |
+| &nbsp;&nbsp;- Turnover | Total trading volume | Generally lower is better. Indicates trading frequency and costs. |
+| &nbsp;&nbsp;- Trade Count | Number of executed trades | Context-dependent. Shows trading frequency. |
+| &nbsp;&nbsp;- Trading Fees | Total fees paid in FIAT | Lower is better. Direct cost of trading. |
 
 ### Calculation Details
 
@@ -100,9 +100,11 @@ The scoring output provides detailed metrics for strategy evaluation:
       "token_1/token_2": 0.0024
     }
   },
-  "trading": {                    // Trading activity metrics
-    "trade_count": 12,            // Total number of executed trades
+  "trading": {                    // Trading metrics and statistics
+    "sharpe": 3.32,               // Risk-adjusted return measure
+    "max_drawdown": -0.013,       // Worst peak-to-trough decline
     "turnover": 105417.47,        // Total trading volume in USD
+    "trade_count": 12,            // Total number of executed trades
     "total_fees_paid": 21.08      // Total fees paid in FIAT
   },
   "hodl_pnl": {                   // Buy and hold performance
@@ -111,8 +113,6 @@ The scoring output provides detailed metrics for strategy evaluation:
     "initial_equity": 510000.0,   // Initial HODL value
     "final_equity": 511000.0      // Final HODL value
   },
-  "sharpe": 3.32,                 // Risk-adjusted return measure
-  "max_drawdown": -0.013,         // Worst peak-to-trough decline
   "score_components": {           // Score breakdown
     "sharpe_contribution": 2.32,  // 70% of Sharpe
     "drawdown_penalty": 0.0025,   // 20% of abs(max_drawdown)
@@ -125,7 +125,12 @@ The output has been reorganized for better readability, with metrics grouped log
 
 The score prioritizes risk-adjusted returns (70%) while penalizing drawdowns (20%) and excessive trading (10%).
 
+</details>
+
 ## Market Data Processing
+
+<details>
+<summary>Click to expand Market Data Processing details</summary>
 
 The trading engine processes market data with a sophisticated time-synchronized approach to ensure realistic multi-pair trading:
 
@@ -162,6 +167,9 @@ The trading engine processes market data with a sophisticated time-synchronized 
 
 ## Order Execution Model
 
+<details>
+<summary>Click to expand Order Execution Model details</summary>
+
 The trading engine simulates order execution with the following characteristics:
 
 1. **Market Orders Only**: All orders are executed as market orders at the current price (close price from the candle).
@@ -183,67 +191,148 @@ The trading engine simulates order execution with the following characteristics:
 
 7. **No Order Book**: There is no simulated order book or limit orders - trades execute against current market prices.
 
+</details>
+
 ## Strategy Development
 
-### Single-Asset Strategies
-Trading strategies for a single asset are implemented in the `strategy/` directory:
+<details>
+<summary>Click to expand Strategy Development details</summary>
 
-1. `strategy/main.py` - Strategy entry point with the required `on_tick` function
-2. `strategy/basic.py` - Example mean-reversion strategy implementation
+The Junz trading framework is designed for multi-asset strategies that can trade across multiple pairs simultaneously. This enables advanced techniques like triangular arbitrage and cross-market strategies.
 
-To implement your own single-asset strategy:
-1. Modify `basic.py` or create your own strategy module
-2. Return trading signals from the `on_tick` function in this format:
-   ```python
-   # Buy signal
-   {"side": "buy", "qty": 0.01}
-   
-   # Sell signal
-   {"side": "sell", "qty": 0.01}
-   
-   # No action
-   None
-   ```
+### Multi-Asset Strategy Implementation
 
-### Multi-Asset Strategies
-For trading across multiple pairs (BTC/USDT, ETH/USDT, ETH/BTC), use the multi-asset framework:
+Your strategy is implemented in the `strategy/` directory:
 
-1. `strategy/multi_main.py` - Entry point with the required `on_multi_tick` function
-2. `strategy/multi_strategy.py` - Create this to implement custom multi-asset strategies
+1. `strategy/main.py` - Entry point containing the required `on_multi_tick` function
+2. Optional custom strategy module (e.g., `strategy/strategy.py`) - Can contain your strategy implementation
 
-To implement a multi-asset strategy:
-1. Create a `multi_strategy.py` file with a `MultiStrategy` class
-2. Implement the `on_tick` method accepting a dictionary of market data for all pairs
-3. Return trading signals specifying the trading pair:
-   ```python
-   # Buy BTC with USDT
-   {"pair": "BTC/USDT", "side": "buy", "qty": 0.01}
-   
-   # Sell ETH for BTC
-   {"pair": "ETH/BTC", "side": "sell", "qty": 0.1}
-   
-   # No action
-   None
-   ```
+To implement your own strategy:
 
-### Arbitrage Opportunities
-The multi-asset framework enables triangular arbitrage strategies across three connected pairs:
+1. Create a strategy class with an `on_data` method
+2. The method should accept:
+   - `market_data`: Dictionary of market data for all trading pairs
+   - `balances`: Current account balances
+3. Return trading signals in the following format:
 
 ```python
-# Example arbitrage check
-btc_price = market_data["BTC/USDT"]["close"]
-eth_price = market_data["ETH/USDT"]["close"]
-eth_btc_price = market_data["ETH/BTC"]["close"]
+# Buy ETH with USDT
+return {
+    "pair": "token_1/fiat",  # ETH/USDT
+    "side": "buy",
+    "qty": 0.01
+}
 
-# Calculate implied ETH/BTC price
-implied_eth_btc = eth_price / btc_price
+# Sell BTC for USDT
+return {
+    "pair": "token_2/fiat",  # BTC/USDT
+    "side": "sell", 
+    "qty": 0.1
+}
 
-# If actual ETH/BTC price is lower than implied (opportunity to buy ETH with BTC)
-if eth_btc_price < implied_eth_btc * 0.995:
-    return {"pair": "ETH/BTC", "side": "buy", "qty": 0.1}
+# Buy ETH with BTC
+return {
+    "pair": "token_1/token_2",  # ETH/BTC
+    "side": "buy",
+    "qty": 0.5
+}
+
+# No action
+return None
 ```
 
+### Market Data Format
+
+Your strategy receives market data in this format:
+
+```python
+{
+    "token_1/fiat": {          # e.g., ETH/USDT
+        "open": 2500.0,
+        "high": 2505.0,
+        "low": 2495.0,
+        "close": 2502.5,
+        "volume": 125.5,
+        "timestamp": 1743292800000,
+        "fee": 0.0002          # Current fee rate
+    },
+    "token_2/fiat": {...},     # e.g., BTC/USDT
+    "token_1/token_2": {...}   # e.g., ETH/BTC
+}
+```
+
+### Balance Information
+
+Your strategy also receives current balances:
+
+```python
+{
+    "fiat": 500000.0,    # e.g., USDT balance
+    "token_1": 100.0,    # e.g., ETH balance
+    "token_2": 10.0      # e.g., BTC balance
+}
+```
+
+### Implementing Arbitrage Strategies
+
+The multi-asset framework is ideal for triangular arbitrage across the three connected pairs:
+
+```python
+def on_data(self, market_data, balances):
+    # Check if we have data for all pairs
+    if all(pair in market_data for pair in ["token_1/fiat", "token_2/fiat", "token_1/token_2"]):
+        # Get current prices
+        token1_price = market_data["token_1/fiat"]["close"]
+        token2_price = market_data["token_2/fiat"]["close"]
+        token1_token2_price = market_data["token_1/token_2"]["close"]
+        
+        # Calculate implied price
+        implied_token1_token2 = token1_price / token2_price
+        
+        # Get fee from market data
+        fee = market_data["token_1/fiat"].get("fee", 0.0002)
+        
+        # Check for arbitrage opportunity (buying token_1 with token_2)
+        if token1_token2_price < implied_token1_token2 * 0.995:
+            qty_token1 = 0.01
+            required_token2 = qty_token1 * token1_token2_price * (1 + fee)
+            
+            # Check if we have enough token_2
+            if balances["token_2"] >= required_token2:
+                return {
+                    "pair": "token_1/token_2",
+                    "side": "buy",
+                    "qty": qty_token1
+                }
+    
+    return None  # No arbitrage opportunity found
+```
+
+The framework handles the time synchronization of data across all pairs, ensuring you have a consistent view of the market at each timestamp.
+
+</details>
+
+## Project Structure
+
+The project is organized with the following key directories:
+
+- `exchange/` - Trading engine and backtest framework
+  - `engine.py` - Main backtesting engine that simulates market conditions
+  
+- `strategy/` - Trading strategy implementation
+  - `main.py` - Entry point with the `on_data` function required by the engine
+  - Create your own `strategy.py` for custom strategy implementation
+
+- `data/` - Market data storage
+  - Downloaded market data stored as parquet files
+  
+- `scripts/` - Utility scripts
+  - `download.py` - Data download utility
+
 ## Configuration
+
+<details>
+<summary>Click to expand Configuration details</summary>
 
 Edit the `justfile` to customize:
 - Trading pairs (e.g., "ETH/USDT", "BTC/USDT", "ETH/BTC")
@@ -271,6 +360,8 @@ just score myteam ETH BTC USDT 100 10 500000 5
 just score myteam ETH BTC USDT 100 10 500000 10
 ```
 
+</details>
+
 Default values can be set in the justfile:
 ```
 # Default balances
@@ -282,13 +373,20 @@ FIAT_BALANCE    := "500000"  # Default USDT balance
 FEE := "2"  # Default fee in basis points (2 = 0.02%)
 ```
 
+</details>
+
 ## Docker Support
+
+<details>
+<summary>Click to expand Docker Support details</summary>
 
 Build and run the containerized environment:
 ```shell
 just build
 docker run -it junz
 ```
+
+</details>
 
 ## License
 

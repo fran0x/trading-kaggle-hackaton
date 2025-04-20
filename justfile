@@ -3,10 +3,14 @@
 ##################
 
 DATA        := "data"
+
+# Default time range
 START_TS    := "1743292800000"   # 2025‑04‑30
 END_TS      := "1743379200000"   # 2025‑04‑31
 TIMEFRAME   := "1m"
-TEAM        := "alpha"
+
+# Default trading fees
+FEE := "2"  # In basis points (2 = 0.02%)
 
 # Default assets and balances
 TOKEN_1 := "ETH"
@@ -17,8 +21,8 @@ TOKEN_1_BALANCE := "100"
 TOKEN_2_BALANCE := "10"
 FIAT_BALANCE    := "500000"
 
-# Trading parameters
-FEE := "2"  # In basis points (2 = 0.02%)
+# Default team
+TEAM        := "alpha"
 
 ###########
 # RECIPES #
@@ -107,19 +111,23 @@ score team=TEAM token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT token1_balance=TOKEN_1_B
 print:
     #!/usr/bin/env bash
     echo "Trading Configuration:"
+    # Convert unix timestamps to human-readable dates
+    START_DATE=$(date -r $(( {{START_TS}} / 1000 )) "+%Y-%m-%d %H:%M:%S")
+    END_DATE=$(date -r $(( {{END_TS}} / 1000 )) "+%Y-%m-%d %H:%M:%S")
+    echo "  Start: $START_DATE ({{START_TS}})"
+    echo "  End: $END_DATE ({{END_TS}})"
     echo "  Timeframe: {{TIMEFRAME}}"
-    echo "  Default Team: {{TEAM}}"
+    # Calculate decimal and percentage representations of the fee
+    FEE_DECIMAL=$(echo "scale=4; {{FEE}}/10000" | bc)
+    FEE_PERCENT=$(echo "scale=2; {{FEE}}/100" | bc)
+    echo "  Fee: {{FEE}} basis points ($FEE_DECIMAL or ${FEE_PERCENT}%)"
     echo ""
     echo "Default Portfolio:"
     echo "  {{TOKEN_1}}: {{TOKEN_1_BALANCE}}"
     echo "  {{TOKEN_2}}: {{TOKEN_2_BALANCE}}" 
     echo "  {{FIAT}}: {{FIAT_BALANCE}}"
     echo ""
-    echo "Trading Parameters:"
-    # Calculate decimal and percentage representations of the fee
-    FEE_DECIMAL=$(echo "scale=4; {{FEE}}/10000" | bc)
-    FEE_PERCENT=$(echo "scale=2; {{FEE}}/100" | bc)
-    echo "  Fee: {{FEE}} basis points ($FEE_DECIMAL or ${FEE_PERCENT}%)"
+    echo "Default Team: {{TEAM}}"
     echo ""
     echo "Commands:"
     echo "  Download market data: just download [token1] [token2] [fiat]"

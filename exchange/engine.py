@@ -74,7 +74,7 @@ def run_multi_backtest(submission_dir: Path, data_dict: dict, broker=None):
             market_data[pair] = data_dict
         
         # Get strategy decision based on all available market data and current balances
-        action = strat_mod.on_multi_tick(market_data, broker.balances)
+        action = strat_mod.on_data(market_data, broker.balances)
         
         # Execute action if any
         if action:
@@ -367,10 +367,12 @@ def main():
                 "final": display_res.pop("current_prices")
             },
             
-            # Trading activity
+            # Trading activity and performance metrics
             "trading": {
-                "trade_count": display_res.pop("trade_count"),
+                "sharpe": display_res.pop("sharpe"),
+                "max_drawdown": display_res.pop("max_dd"),
                 "turnover": display_res.pop("turnover"),
+                "trade_count": display_res.pop("trade_count"),
                 "total_fees_paid": display_res.pop("total_fees_paid"),
             },
             
@@ -381,12 +383,6 @@ def main():
                 "initial_equity": display_res.pop("initial_equity"),
                 "final_equity": display_res.pop("hodl_value")
             },
-            
-            # Risk-adjusted return
-            "sharpe": display_res.pop("sharpe"),
-            
-            # Risk metric
-            "max_drawdown": display_res.pop("max_dd"),
             
             # Score breakdown
             "score_components": display_res.pop("score_components")

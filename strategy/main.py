@@ -12,7 +12,7 @@ except ImportError:
         def __init__(self):
             self.initialized = False
             
-            # Price history for each pair
+            # Price history for each pair - this maintains state between calls
             self.price_history = {
                 "token_1/fiat": [],
                 "token_2/fiat": [],
@@ -25,7 +25,7 @@ except ImportError:
             # Volatility threshold for signals
             self.threshold = 2.0
     
-        def on_tick(self, market_data, balances):
+        def on_data(self, market_data, balances):
             """Process market data and current balances to make trading decisions.
             
             Args:
@@ -127,7 +127,7 @@ except ImportError:
     
     strategy = DefaultStrategy()
 
-def on_multi_tick(market_data, balances):
+def on_data(market_data, balances):
     """API required by the exchange engine.
     
     Args:
@@ -137,4 +137,4 @@ def on_multi_tick(market_data, balances):
     Returns:
         Trading signal dict {pair, side, qty} or None
     """
-    return strategy.on_tick(market_data, balances)
+    return strategy.on_data(market_data, balances)
