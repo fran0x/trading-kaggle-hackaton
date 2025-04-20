@@ -2,6 +2,14 @@
 
 A backtesting framework for cryptocurrency trading strategies with a simple, extensible architecture.
 
+## Development Setup
+
+This project uses [just](https://github.com/casey/just) as a command runner for development tasks. To get started:
+
+1. Install just by following the instructions at [https://github.com/casey/just#installation](https://github.com/casey/just#installation)
+2. Run `just install` to set up the Python environment
+3. Use `just print` to see available commands
+
 ## Overview
 
 Junz is a trading strategy evaluation framework that allows you to:
