@@ -1,14 +1,28 @@
+##################
+# DEFAULT VALUES #
+##################
+
 DATA        := "data"
 START_TS    := "1743292800000"   # 2025‑04‑30
 END_TS      := "1743379200000"   # 2025‑04‑31
-SYMBOL      := "BTC/USDT"
-TEAM        := "alpha"
 TIMEFRAME   := "1m"
+TEAM        := "alpha"
 
-# Convert symbol format for filename (BTC/USDT -> btcusdt)
-SYMBOL_FILE := replace(lowercase(SYMBOL), "/", "")
-STRATEGY    := TEAM + "_submission.tgz"
-MARKET_DATA := DATA + "/" + SYMBOL_FILE + "_" + TIMEFRAME + ".parquet"
+# Default assets and balances
+TOKEN_1 := "ETH"
+TOKEN_2 := "BTC" 
+FIAT    := "USDT"
+
+TOKEN_1_BALANCE := "100"
+TOKEN_2_BALANCE := "10"
+FIAT_BALANCE    := "500000"
+
+# Trading parameters
+FEE := "2"  # In basis points (2 = 0.02%)
+
+###########
+# RECIPES #
+###########
 
 # print options
 default:
@@ -31,25 +45,96 @@ install:
 build:
     docker build -t junz .
 
-# download 1‑minute OHLCV
-download:
-    python scripts/download.py {{SYMBOL}} --start {{START_TS}} --end {{END_TS}}
+# download market data for several pairs
+download token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT:
+    #!/usr/bin/env bash
+    # Convert to lowercase for filenames
+    TOKEN1_LC=$(echo "{{token1}}" | tr '[:upper:]' '[:lower:]')
+    TOKEN2_LC=$(echo "{{token2}}" | tr '[:upper:]' '[:lower:]')
+    FIAT_LC=$(echo "{{fiat}}" | tr '[:upper:]' '[:lower:]')
+    
+    echo "Downloading data for {{token1}}/{{fiat}}, {{token2}}/{{fiat}}, and {{token1}}/{{token2}}..."
+    
+    # Create the data directory if it doesn't exist
+    mkdir -p {{DATA}}
+    
+    # Download token1/fiat data
+    python scripts/download.py "{{token1}}/{{fiat}}" --start {{START_TS}} --end {{END_TS}} \
+        --output {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet
+    
+    # Download token2/fiat data
+    python scripts/download.py "{{token2}}/{{fiat}}" --start {{START_TS}} --end {{END_TS}} \
+        --output {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet
+    
+    # Download token1/token2 data
+    python scripts/download.py "{{token1}}/{{token2}}" --start {{START_TS}} --end {{END_TS}} \
+        --output {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.parquet
+    
+    echo "Download complete for {{token1}}, {{token2}}, and {{fiat}}."
 
-# archive the strategy
-tar:
-    tar -czf {{TEAM}}_submission.tgz strategy/
+# archive the trading strategy
+tar team=TEAM:
+    @echo "Creating strategy archive for team {{team}}..."
+    tar -czf {{team}}_submission.tgz strategy/
 
-# score with Python the strategy
-score:
-    python -m exchange.engine {{STRATEGY}} --data {{MARKET_DATA}}
+# score the trading strategy
+score team=TEAM token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT token1_balance=TOKEN_1_BALANCE token2_balance=TOKEN_2_BALANCE fiat_balance=FIAT_BALANCE fee=FEE:
+    #!/usr/bin/env bash
+    # Calculate strategy file name
+    STRATEGY_FILE="{{team}}_submission.tgz"
+    
+    # Convert to lowercase for filenames
+    TOKEN1_LC=$(echo "{{token1}}" | tr '[:upper:]' '[:lower:]')
+    TOKEN2_LC=$(echo "{{token2}}" | tr '[:upper:]' '[:lower:]')
+    FIAT_LC=$(echo "{{fiat}}" | tr '[:upper:]' '[:lower:]')
+    
+    echo "Scoring strategy with {{token1}}/{{fiat}}, {{token2}}/{{fiat}}, and {{token1}}/{{token2}} for team {{team}}..."
+    echo "Initial balances: {{token1}}={{token1_balance}}, {{token2}}={{token2_balance}}, {{fiat}}={{fiat_balance}}"
+    FEE_DECIMAL=$(echo "scale=4; {{fee}}/10000" | bc)
+    FEE_PERCENT=$(echo "scale=2; {{fee}}/100" | bc)
+    echo "Trading fee: {{fee}} basis points ($FEE_DECIMAL or ${FEE_PERCENT}%)"
+    
+    python -m exchange.engine ${STRATEGY_FILE} \
+        --token1fiat {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet \
+        --token2fiat {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet \
+        --token1token2 {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.parquet \
+        --token1_balance {{token1_balance}} \
+        --token2_balance {{token2_balance}} \
+        --fiat_balance {{fiat_balance}} \
+        --fee {{fee}}
 
 # print current configuration
 print:
-    @echo "Symbol: {{SYMBOL}}"
-    @echo "Timeframe: {{TIMEFRAME}}"
-    @echo "Input File: {{MARKET_DATA}}"
-    @echo "Team: {{TEAM}}"
-    @echo "Strategy: {{STRATEGY}}"
+    #!/usr/bin/env bash
+    echo "Trading Configuration:"
+    echo "  Timeframe: {{TIMEFRAME}}"
+    echo "  Default Team: {{TEAM}}"
+    echo ""
+    echo "Default Portfolio:"
+    echo "  {{TOKEN_1}}: {{TOKEN_1_BALANCE}}"
+    echo "  {{TOKEN_2}}: {{TOKEN_2_BALANCE}}" 
+    echo "  {{FIAT}}: {{FIAT_BALANCE}}"
+    echo ""
+    echo "Trading Parameters:"
+    # Calculate decimal and percentage representations of the fee
+    FEE_DECIMAL=$(echo "scale=4; {{FEE}}/10000" | bc)
+    FEE_PERCENT=$(echo "scale=2; {{FEE}}/100" | bc)
+    echo "  Fee: {{FEE}} basis points ($FEE_DECIMAL or ${FEE_PERCENT}%)"
+    echo ""
+    echo "Commands:"
+    echo "  Download market data: just download [token1] [token2] [fiat]"
+    echo "  Archive strategy: just tar [team]"
+    echo "  Score strategy: just score [team] [token1] [token2] [fiat] [token1_balance] [token2_balance] [fiat_balance] [fee]"
+    echo ""
+    echo "Examples:"
+    echo "  just download                       # Uses default tokens: {{TOKEN_1}}, {{TOKEN_2}}, {{FIAT}}"
+    echo "  just download SOL AVAX USDC         # Downloads SOL/USDC, AVAX/USDC, SOL/AVAX data"
+    echo "  just tar                            # Uses default team: {{TEAM}}"
+    echo "  just tar beta                       # Creates beta_submission.tgz"
+    echo "  just score                          # Uses default team and tokens with default balances"
+    echo "  just score beta SOL AVAX USDC       # Scores beta team with SOL/AVAX/USDC data"
+    echo "  just score beta SOL AVAX USDC 50 5 1000000  # Custom initial balances"
+    echo "  just score beta SOL AVAX USDC 50 5 1000000 5  # Custom fee (5 bps = 0.05%)"
 
 # remove downloaded data and generated archives
 clean:
