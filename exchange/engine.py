@@ -6,9 +6,15 @@ import pandas as pd
 
 # --- Helpers -------------------------------------------------------------
 
-def sharpe(returns: np.ndarray, risk_free: float = 0.0):
-    excess = returns - risk_free / (365 * 24 * 60)  # per‑minute rf
-    return np.sqrt(525600) * excess.mean() / (excess.std(ddof=1) + 1e-9)
+MINUTES_PER_YEAR = 365 * 24 * 60
+ANNUALIZATION_FACTOR = np.sqrt(MINUTES_PER_YEAR)
+EPSILON = 1e-9
+DEFAULT_RISK_FREE = 0.0
+DEFAULT_FEE = 0.0002 # 2 bps = 0.0002 = 0.02%
+
+def sharpe(returns: np.ndarray, risk_free: float = DEFAULT_RISK_FREE):
+    excess = returns - risk_free / MINUTES_PER_YEAR  # per‑minute rf
+    return ANNUALIZATION_FACTOR * excess.mean() / (excess.std(ddof=1) + EPSILON)
 
 def max_drawdown(equity: np.ndarray):
     cummax = np.maximum.accumulate(equity)
@@ -17,23 +23,23 @@ def max_drawdown(equity: np.ndarray):
 
 # --- Core Engine ---------------------------------------------------------
 
-def run_multi_backtest(submission_dir: Path, data_dict: dict, broker=None):
+def run_backtest(submission_dir: Path, data_dict: dict, trader=None):
     """Run a backtest with multiple trading pairs.
     
     Args:
         submission_dir: Path to the strategy directory
         data_dict: Dictionary of {pair: dataframe} containing market data for each pair
-        broker: Optional custom broker instance with initial balances
+        trader: Optional custom trader instance with initial balances
     """
     sys.path.insert(0, str(submission_dir))
     strat_mod = importlib.import_module("strategy.main")
     
-    # Initialize multi-asset broker if not provided
-    if broker is None:
-        broker = MultiBroker(initial_balance=10_000)  # USD
+    # Initialize multi-asset trader if not provided
+    if trader is None:
+        trader = Trader(initial_balance=10_000)  # USD
     
     # Record initial balances for display
-    initial_balances = broker.balances.copy()
+    initial_balances = trader.balances.copy()
     
     # Initialize prices with first data point for each pair
     first_prices = {}
@@ -49,7 +55,7 @@ def run_multi_backtest(submission_dir: Path, data_dict: dict, broker=None):
         initial_portfolio_value += initial_balances["token_2"] * first_prices["token_2/fiat"]
     
     # Start equity history with correct initial portfolio value
-    broker.equity_history = [initial_portfolio_value]
+    trader.equity_history = [initial_portfolio_value]
     
     # Combine all dataframes and sort by timestamp
     all_data = []
@@ -67,21 +73,21 @@ def run_multi_backtest(submission_dir: Path, data_dict: dict, broker=None):
         market_data = {}
         for _, row in group.iterrows():
             pair = row['pair']
-            broker.update_market(pair, row.to_dict())
+            trader.update_market(pair, row.to_dict())
             data_dict = row.to_dict()
             # Add fee information to market data so strategies can access it
-            data_dict["fee"] = broker.fee
+            data_dict["fee"] = trader.fee
             market_data[pair] = data_dict
         
         # Get strategy decision based on all available market data and current balances
-        action = strat_mod.on_data(market_data, broker.balances)
+        action = strat_mod.on_data(market_data, trader.balances)
         
         # Execute action if any
         if action:
-            broker.execute(action)
+            trader.execute(action)
     
     # Calculate performance metrics
-    equity_curve = np.array(broker.equity_history)
+    equity_curve = np.array(trader.equity_history)
     rets = np.diff(equity_curve) / equity_curve[:-1]
     initial_equity = equity_curve[0]
     final_equity = equity_curve[-1]
@@ -94,17 +100,17 @@ def run_multi_backtest(submission_dir: Path, data_dict: dict, broker=None):
     
     # Store current prices for result reporting
     current_prices = {
-        "token_1/fiat": broker.prices.get("token_1/fiat"),
-        "token_2/fiat": broker.prices.get("token_2/fiat"),
-        "token_1/token_2": broker.prices.get("token_1/token_2")
+        "token_1/fiat": trader.prices.get("token_1/fiat"),
+        "token_2/fiat": trader.prices.get("token_2/fiat"),
+        "token_1/token_2": trader.prices.get("token_1/token_2")
     }
     
     # Calculate what the value would be if we had simply held the initial assets
     hodl_value = initial_balances["fiat"]
-    if broker.prices["token_1/fiat"] is not None and initial_balances["token_1"] > 0:
-        hodl_value += initial_balances["token_1"] * broker.prices["token_1/fiat"]
-    if broker.prices["token_2/fiat"] is not None and initial_balances["token_2"] > 0:
-        hodl_value += initial_balances["token_2"] * broker.prices["token_2/fiat"]
+    if trader.prices["token_1/fiat"] is not None and initial_balances["token_1"] > 0:
+        hodl_value += initial_balances["token_1"] * trader.prices["token_1/fiat"]
+    if trader.prices["token_2/fiat"] is not None and initial_balances["token_2"] > 0:
+        hodl_value += initial_balances["token_2"] * trader.prices["token_2/fiat"]
     
     # Calculate HODL performance
     hodl_absolute_pnl = hodl_value - initial_equity
@@ -114,17 +120,17 @@ def run_multi_backtest(submission_dir: Path, data_dict: dict, broker=None):
     return {
         "sharpe": sharpe(rets),
         "max_dd": max_drawdown(equity_curve),
-        "turnover": broker.turnover,
+        "turnover": trader.turnover,
         "absolute_pnl": absolute_pnl,
         "percentage_pnl": percentage_pnl,
         "initial_equity": initial_equity,
         "final_equity": final_equity,
         "initial_balances": initial_balances,
-        "final_balances": broker.balances,
+        "final_balances": trader.balances,
         "initial_fiat_value": initial_fiat_value,
         "final_fiat_value": final_fiat_value,
-        "total_fees_paid": broker.total_fees_paid,
-        "trade_count": broker.trade_count,
+        "total_fees_paid": trader.total_fees_paid,
+        "trade_count": trader.trade_count,
         "current_prices": current_prices,
         "hodl_absolute_pnl": hodl_absolute_pnl,
         "hodl_percentage_pnl": hodl_percentage_pnl,
@@ -132,15 +138,11 @@ def run_multi_backtest(submission_dir: Path, data_dict: dict, broker=None):
         "equity_curve": equity_curve.tolist(),
     }
 
-class MultiBroker:
-    """Broker supporting multiple trading pairs and currencies."""
-    def __init__(self, initial_balance: float = 10_000):
+class Trader:
+    """Trader supporting multiple trading pairs and currencies."""
+    def __init__(self):
         # Initialize balances for each currency
-        self.balances = {
-            "fiat": initial_balance,  # Base currency (quote currency)
-            "token_1": 0.0,           # Primary token
-            "token_2": 0.0            # Secondary token
-        }
+        self.balances = {"fiat": 0.0, "token_1": 0.0, "token_2": 0.0}
         
         # Track market prices for each pair
         self.prices = {
@@ -164,13 +166,13 @@ class MultiBroker:
         }
         
         # Track portfolio value history
-        self.equity_history = [initial_balance]
+        self.equity_history = 0.0
         self.turnover = 0.0
         self.trade_count = 0
         self.total_fees_paid = 0.0  # Track total fees paid
         
-        # Trading fee (2 bps = 0.0002 = 0.02%)
-        self.fee = 0.0002
+        # Trading fee
+        self.fee = DEFAULT_FEE
     
     def update_market(self, pair, price_data):
         """Update market prices for a specific trading pair"""
@@ -296,21 +298,21 @@ def main():
         with tarfile.open(args.submission) as tar:
             tar.extractall(path=td)
             
-        # Create MultiBroker with custom initial balances and fee
-        broker = MultiBroker(initial_balance=args.fiat_balance)
-        broker.balances = {
+        # Create Trader
+        trader = Trader()
+        trader.balances = {
             "fiat": args.fiat_balance,
             "token_1": args.token1_balance,
             "token_2": args.token2_balance
         }
         # Convert fee from basis points to decimal (e.g., 2 basis points = 0.0002)
-        broker.fee = args.fee / 10000
+        trader.fee = args.fee / 10000
         
         # Reset the equity history - it will be properly initialized in run_multi_backtest
-        broker.equity_history = []
+        trader.equity_history = []
         
-        # Update the run_multi_backtest function to use our custom broker
-        res = run_multi_backtest(Path(td) / "submission", data_dict, broker=broker)
+        # Update the run_backtest function to use our custom trader
+        res = run_backtest(Path(td) / "submission", data_dict, trader=trader)
         
         # Calculate score components
         sharpe_component = 0.7 * res["sharpe"]
@@ -360,9 +362,9 @@ def main():
             # Market prices
             "prices": {
                 "initial": {
-                    "token_1/fiat": broker.first_prices.get("token_1/fiat"),
-                    "token_2/fiat": broker.first_prices.get("token_2/fiat"),
-                    "token_1/token_2": broker.first_prices.get("token_1/token_2")
+                    "token_1/fiat": trader.first_prices.get("token_1/fiat"),
+                    "token_2/fiat": trader.first_prices.get("token_2/fiat"),
+                    "token_1/token_2": trader.first_prices.get("token_1/token_2")
                 },
                 "final": display_res.pop("current_prices")
             },
