@@ -188,8 +188,8 @@ def score(solution: pd.DataFrame, submission: pd.DataFrame, row_id_column_name: 
         for _, row in group.iterrows():
             trader.update_market(row["symbol"], row.to_dict())
 
-        # Get strategy decision based on all available market data and current balances
-        for _, row in submission.iterrows():
+        # Execute trades from submission file for timestamp
+        for _, row in submission[submission["timestamp"] == timestamp].iterrows():
             trader.execute(row.to_dict())
 
     # Calculate performance metrics
