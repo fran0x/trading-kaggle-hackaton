@@ -36,7 +36,7 @@ def run_backtest(submission_dir: Path, data_dict: dict, trader=None):
     
     # Initialize multi-asset trader if not provided
     if trader is None:
-        trader = Trader(initial_balance=10_000)  # USD
+        trader = Trader()  # USD
     
     # Record initial balances for display
     initial_balances = trader.balances.copy()

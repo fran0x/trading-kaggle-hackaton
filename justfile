@@ -5,8 +5,8 @@
 DATA        := "data"
 
 # Default time range
-START_TS    := "1743292800000"   # 2025‑04‑30
-END_TS      := "1743379200000"   # 2025‑04‑31
+START_TS    := "1743292800000"   # 2025‑03‑30
+END_TS      := "1743379200000"   # 2025‑03‑31
 TIMEFRAME   := "1m"
 
 # Default trading fees
@@ -23,6 +23,12 @@ FIAT_BALANCE    := "500000"
 
 # Default team
 TEAM        := "alpha"
+
+# Default ratios for solution file
+
+PUBLIC_RATIO  := "0.3"
+PRIVATE_RATIO := "0.7"
+IGNORED_RATIO  := "0.0"
 
 ###########
 # RECIPES #
@@ -64,44 +70,86 @@ download token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT:
     
     # Download token1/fiat data
     python scripts/download.py "{{token1}}/{{fiat}}" --start {{START_TS}} --end {{END_TS}} \
-        --output {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet
+        --output {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.csv
     
     # Download token2/fiat data
     python scripts/download.py "{{token2}}/{{fiat}}" --start {{START_TS}} --end {{END_TS}} \
-        --output {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet
+        --output {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.csv
     
     # Download token1/token2 data
     python scripts/download.py "{{token1}}/{{token2}}" --start {{START_TS}} --end {{END_TS}} \
-        --output {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.parquet
+        --output {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.csv
     
     echo "Download complete for {{token1}}, {{token2}}, and {{fiat}}."
+
+    echo "Merging data files..."
+
+    python scripts/merge.py \
+        {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.csv \
+        {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.csv \
+        {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.csv \
+        --output {{DATA}}/test.csv
+
+    echo "Data files merged into {{DATA}}/test.csv"
+
+    echo "Generating a solution file..."
+
+    python scripts/solution.py {{DATA}}/test.csv {{DATA}}/solution.csv \
+        --public-ratio {{PUBLIC_RATIO}} \
+        --private-ratio {{PRIVATE_RATIO}} \
+        --ignored-ratio {{IGNORED_RATIO}}
+
+    echo "Solution file generated at {{DATA}}/solution.csv"
 
 # archive the trading strategy
 tar team=TEAM:
     @echo "Creating strategy archive for team {{team}}..."
     tar -czf {{team}}_submission.tgz strategy/
 
-# score the trading strategy
-score team=TEAM token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT token1_balance=TOKEN_1_BALANCE token2_balance=TOKEN_2_BALANCE fiat_balance=FIAT_BALANCE fee=FEE:
+# generate transactions with a trading strategy
+trade team=TEAM token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT token1_balance=TOKEN_1_BALANCE token2_balance=TOKEN_2_BALANCE fiat_balance=FIAT_BALANCE fee=FEE:
     #!/usr/bin/env bash
     # Calculate strategy file name
     STRATEGY_FILE="{{team}}_submission.tgz"
-    
+
     # Convert to lowercase for filenames
     TOKEN1_LC=$(echo "{{token1}}" | tr '[:upper:]' '[:lower:]')
     TOKEN2_LC=$(echo "{{token2}}" | tr '[:upper:]' '[:lower:]')
     FIAT_LC=$(echo "{{fiat}}" | tr '[:upper:]' '[:lower:]')
-    
+
+    echo "Trading strategy with {{token1}}/{{fiat}}, {{token2}}/{{fiat}}, and {{token1}}/{{token2}} for team {{team}}..."
+    echo "Initial balances: {{token1}}={{token1_balance}}, {{token2}}={{token2_balance}}, {{fiat}}={{fiat_balance}}"
+    FEE_DECIMAL=$(echo "scale=4; {{fee}}/10000" | bc)
+    FEE_PERCENT=$(echo "scale=2; {{fee}}/100" | bc)
+    echo "Trading fee: {{fee}} basis points ($FEE_DECIMAL or ${FEE_PERCENT}%)"
+
+    python -m exchange.trade ${STRATEGY_FILE} \
+        --data {{DATA}}/test.csv \
+        --output {{DATA}}/submission.csv \
+        --token1_balance {{token1_balance}} \
+        --token2_balance {{token2_balance}} \
+        --fiat_balance {{fiat_balance}} \
+        --fee {{fee}}
+
+# score the generated transactions
+score team=TEAM token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT token1_balance=TOKEN_1_BALANCE token2_balance=TOKEN_2_BALANCE fiat_balance=FIAT_BALANCE fee=FEE:
+    #!/usr/bin/env bash
+    # Calculate strategy file name
+    STRATEGY_FILE="{{team}}_submission.tgz"
+
+    # Convert to lowercase for filenames
+    TOKEN1_LC=$(echo "{{token1}}" | tr '[:upper:]' '[:lower:]')
+    TOKEN2_LC=$(echo "{{token2}}" | tr '[:upper:]' '[:lower:]')
+    FIAT_LC=$(echo "{{fiat}}" | tr '[:upper:]' '[:lower:]')
+
     echo "Scoring strategy with {{token1}}/{{fiat}}, {{token2}}/{{fiat}}, and {{token1}}/{{token2}} for team {{team}}..."
     echo "Initial balances: {{token1}}={{token1_balance}}, {{token2}}={{token2_balance}}, {{fiat}}={{fiat_balance}}"
     FEE_DECIMAL=$(echo "scale=4; {{fee}}/10000" | bc)
     FEE_PERCENT=$(echo "scale=2; {{fee}}/100" | bc)
     echo "Trading fee: {{fee}} basis points ($FEE_DECIMAL or ${FEE_PERCENT}%)"
-    
-    python -m exchange.engine ${STRATEGY_FILE} \
-        --token1fiat {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet \
-        --token2fiat {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.parquet \
-        --token1token2 {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.parquet \
+
+    python -m exchange.score {{DATA}}/submission.csv \
+        --data {{DATA}}/test.csv \
         --token1_balance {{token1_balance}} \
         --token2_balance {{token2_balance}} \
         --fiat_balance {{fiat_balance}} \
