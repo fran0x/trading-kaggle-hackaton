@@ -80,10 +80,13 @@ def run_backtest(submission_dir: Path, data_dict: dict, trader=None):
             market_data[pair] = data_dict
         
         # Get strategy decision based on all available market data and current balances
-        action = strat_mod.on_data(market_data, trader.balances)
-        
+        actions = strat_mod.on_data(market_data, trader.balances)
+
+        if actions is None:
+            continue
+
         # Execute action if any
-        if action:
+        for action in actions:
             trader.execute(action)
     
     # Calculate performance metrics

@@ -49,10 +49,13 @@ def run_backtest(submission_dir: Path, combined_data: pd.DataFrame, fee: float, 
             market_data[pair] = data_dict
 
         # Get strategy decision based on all available market data and current balances
-        action: dict = strat_mod.on_data(market_data, balances)
+        actions: list[dict] | None = strat_mod.on_data(market_data, balances)
+
+        if actions is None:
+            continue
 
         # Add action dictionary to result DataFrame
-        if action:
+        for action in actions:
             action["timestamp"] = timestamp
             action["id"] = str(uuid.uuid4())
             result = pd.concat([result, pd.DataFrame([action])], ignore_index=True)

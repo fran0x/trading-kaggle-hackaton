@@ -70,13 +70,13 @@ except ImportError:
                     fee = market_data.get("fee", DEFAULT_FEE)
                     required_fiat = qty * price * (1 + fee)
                     if balances["fiat"] >= required_fiat:
-                        return {"pair": "token_1/fiat", "side": "buy", "qty": qty}
+                        return [{"pair": "token_1/fiat", "side": "buy", "qty": qty}]
                 
                 elif price > mu + self.threshold * sigma:
                     # Sell token_1 for fiat if we have enough token_1
                     qty = min(0.01, balances["token_1"])  # Adjust qty based on available balance
                     if qty > 0:
-                        return {"pair": "token_1/fiat", "side": "sell", "qty": qty}
+                        return [{"pair": "token_1/fiat", "side": "sell", "qty": qty}]
             
             # Check for trading opportunities in token_2/fiat
             if "token_2/fiat" in market_data:
@@ -91,13 +91,13 @@ except ImportError:
                     fee = market_data.get("fee", DEFAULT_FEE)
                     required_fiat = qty * price * (1 + fee)
                     if balances["fiat"] >= required_fiat:
-                        return {"pair": "token_2/fiat", "side": "buy", "qty": qty}
+                        return [{"pair": "token_2/fiat", "side": "buy", "qty": qty}]
                 
                 elif price > mu + self.threshold * sigma:
                     # Sell token_2 for fiat if we have enough token_2
                     qty = min(0.1, balances["token_2"])  # Adjust qty based on available balance
                     if qty > 0:
-                        return {"pair": "token_2/fiat", "side": "sell", "qty": qty}
+                        return [{"pair": "token_2/fiat", "side": "sell", "qty": qty}]
             
             # Check for arbitrage opportunities with token_1/token_2
             if all(pair in market_data for pair in ["token_1/fiat", "token_2/fiat", "token_1/token_2"]):
@@ -116,14 +116,14 @@ except ImportError:
                     fee = market_data.get("fee", DEFAULT_FEE)
                     required_token2 = qty_token1 * token1_token2_price * (1 + fee)
                     if balances["token_2"] >= required_token2:
-                        return {"pair": "token_1/token_2", "side": "buy", "qty": qty_token1}
+                        return [{"pair": "token_1/token_2", "side": "buy", "qty": qty_token1}]
                 
                 # If actual token_1/token_2 price is significantly higher than implied
                 elif token1_token2_price > implied_token1_token2 * 1.005:
                     # Sell token_1 for token_2 (if we have token_1)
                     qty_token1 = min(0.01, balances["token_1"])  # Adjust qty based on available balance
                     if qty_token1 > 0:
-                        return {"pair": "token_1/token_2", "side": "sell", "qty": qty_token1}
+                        return [{"pair": "token_1/token_2", "side": "sell", "qty": qty_token1}]
             
             return None
     
@@ -137,6 +137,6 @@ def on_data(market_data, balances):
         balances: Dictionary of {currency: amount} containing current balances
         
     Returns:
-        Trading signal dict {pair, side, qty} or None
+        List of trading signals in dict {pair, side, qty} or None
     """
     return strategy.on_data(market_data, balances)
