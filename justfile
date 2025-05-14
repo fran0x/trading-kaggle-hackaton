@@ -19,20 +19,20 @@ DATA        := "data"
 # END_TS      := "1617235200000"   # 2021‑04‑01
 
 # dataset03
-START_TS    := "1675209600000"   # 2023‑02‑01
-END_TS      := "1680307200000"   # 2023‑04‑01
+START_TS    := "1740614400000"   # 2023‑02‑01
+END_TS      := "1745712000000"   # 2023‑04‑01
 
 TIMEFRAME   := "1m"
 
 # Default trading fees
-FEE := "2"  # In basis points (2 = 0.02%)
+FEE := "3"  # In basis points (3 = 0.03%)
 
 # Default assets and balances
 # TOKEN_1 := "ETH"
 # TOKEN_2 := "BTC" 
 # FIAT    := "USDT"
 
-TOKEN_1 := "SOL"
+TOKEN_1 := "ETH"
 TOKEN_2 := "BTC" 
 FIAT    := "USDT"
 
@@ -105,7 +105,7 @@ download token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT:
         {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.csv \
         {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.csv \
         {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.csv \
-        --output {{DATA}}/test.csv
+        --output {{DATA}}/test.csv \
         --token1 {{token1}} \
         --token2 {{token2}} \
         --fiat {{fiat}}

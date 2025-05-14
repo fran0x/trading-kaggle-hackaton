@@ -12,8 +12,7 @@ MINUTES_PER_YEAR = 365 * 24 * 60
 ANNUALIZATION_FACTOR = np.sqrt(MINUTES_PER_YEAR)
 EPSILON = 1e-9
 DEFAULT_RISK_FREE = 0.0
-DEFAULT_FEE = 0.0002  # 2 bps = 0.0002 = 0.02%
-
+DEFAULT_FEE = 0.0003  # 3 bps = 0.0003 = 0.03%
 
 def sharpe(returns: np.ndarray, risk_free: float = DEFAULT_RISK_FREE):
     excess = returns - risk_free / MINUTES_PER_YEAR  # per‑minute rf

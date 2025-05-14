@@ -225,7 +225,7 @@ if __name__ == "__main__":
     p.add_argument("--token1_balance", help="Initial token_1 balance", type=float, default=0.0)
     p.add_argument("--token2_balance", help="Initial token_2 balance", type=float, default=0.0)
     p.add_argument("--fiat_balance", help="Initial fiat balance", type=float, default=10000.0)
-    p.add_argument("--fee", help="Trading fee (in basis points, e.g., 2 = 0.02%)", type=float, default=2.0)
+    p.add_argument("--fee", help="Trading fee (in basis points, e.g., 3 = 0.03% = 0.0003)", type=float, default=3.0)
     args = p.parse_args()
 
     main(args)

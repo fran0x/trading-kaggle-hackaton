@@ -2,7 +2,7 @@
 import importlib
 from pathlib import Path
 
-DEFAULT_FEE = 0.0002 # 2 bps = 0.0002 = 0.02%
+DEFAULT_FEE = 0.0003 # 3 bps = 0.0003 = 0.03%
 
 # Import the strategy implementation
 try:
