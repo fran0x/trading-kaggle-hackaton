@@ -6,6 +6,131 @@ import pandas as pd
 
 # --- Core Engine ---------------------------------------------------------
 
+class Trader:
+    """Trader supporting multiple trading pairs and currencies."""
+
+    def __init__(self, balances, fee):
+        # Initialize balances for each currency
+        self.balances = balances
+        self.fee = fee
+
+        # Track market prices for each pair
+        self.prices = {
+            "token_1/fiat": None,
+            "token_2/fiat": None,
+            "token_1/token_2": None
+        }
+
+        # First and last prices for reporting
+        self.first_prices = {
+            "token_1/fiat": None,
+            "token_2/fiat": None,
+            "token_1/token_2": None
+        }
+
+        # Store the first update timestamp for each pair
+        self.first_update = {
+            "token_1/fiat": False,
+            "token_2/fiat": False,
+            "token_1/token_2": False
+        }
+
+        # Track portfolio value history
+        self.equity_history = []
+        self.turnover = 0.0
+        self.trade_count = 0
+        self.total_fees_paid = 0.0  # Track total fees paid
+
+    def update_market(self, pair, price_data):
+        """Update market prices for a specific trading pair"""
+        # Store the updated price
+        self.prices[pair] = price_data["close"]
+
+        # Store first price for each pair (for reporting)
+        if not self.first_update[pair]:
+            self.first_prices[pair] = price_data["close"]
+            self.first_update[pair] = True
+
+        # Calculate total portfolio value (in fiat)
+        equity = self.calculate_portfolio_value()
+        self.equity_history.append(equity)
+
+    def calculate_portfolio_value(self):
+        """Calculate total portfolio value in fiat currency"""
+        value = self.balances["fiat"]
+
+        # Add token_1 value if we have price data
+        if self.prices["token_1/fiat"] is not None:
+            value += self.balances["token_1"] * self.prices["token_1/fiat"]
+
+        # Add token_2 value if we have price data
+        if self.prices["token_2/fiat"] is not None:
+            value += self.balances["token_2"] * self.prices["token_2/fiat"]
+        # If token_2/fiat price not available but token_1/fiat and token_1/token_2 are available
+        elif self.prices["token_1/fiat"] is not None and self.prices["token_1/token_2"] is not None:
+            token2_value_in_token1 = self.balances["token_2"] / self.prices["token_1/token_2"]
+            value += token2_value_in_token1 * self.prices["token_1/fiat"]
+
+        return value
+
+    def execute(self, order):
+        """Execute a trading order across any supported pair"""
+        pair = order["pair"]  # e.g., "token_1/fiat"
+        side = order["side"]  # "buy" or "sell"
+        qty = float(order["qty"])
+
+        # Split the pair into base and quote currencies
+        base, quote = pair.split("/")
+
+        # Get current price for the pair
+        price = self.prices[pair]
+        if price is None:
+            return  # Can't trade without a price
+
+        executed = False
+
+        if side == "buy":
+            # Calculate total cost including fee
+            base_cost = qty * price
+            fee_amount = base_cost * self.fee
+            total_cost = base_cost + fee_amount
+
+            # Check if we have enough of the quote currency
+            if self.balances[quote] >= total_cost:
+                # Deduct quote currency (e.g., fiat)
+                self.balances[quote] -= total_cost
+
+                # Add base currency (e.g., token_1)
+                self.balances[base] += qty
+
+                # Track turnover and fees
+                self.turnover += total_cost
+                self.total_fees_paid += fee_amount
+                executed = True
+
+        elif side == "sell":
+            # Check if we have enough of the base currency
+            if self.balances[base] >= qty:
+                # Calculate proceeds after fee
+                base_proceeds = qty * price
+                fee_amount = base_proceeds * self.fee
+                net_proceeds = base_proceeds - fee_amount
+
+                # Add quote currency (e.g., fiat)
+                self.balances[quote] += net_proceeds
+
+                # Deduct base currency (e.g., token_1)
+                self.balances[base] -= qty
+
+                # Track turnover and fees
+                self.turnover += base_proceeds
+                self.total_fees_paid += fee_amount
+                executed = True
+
+        # Count successful trades
+        if executed:
+            self.trade_count += 1
+
 def run_backtest(submission_dir: Path, combined_data: pd.DataFrame, fee: float, balances: dict[str, float]) -> pd.DataFrame:
     """Run a backtest with multiple trading pairs.
 
@@ -17,6 +142,8 @@ def run_backtest(submission_dir: Path, combined_data: pd.DataFrame, fee: float, 
     """
     sys.path.insert(0, str(submission_dir))
     strat_mod = importlib.import_module("strategy.main")
+
+    trader = Trader(balances, fee)
 
     # Record initial balances for display
     initial_balances = balances.copy()
@@ -32,6 +159,7 @@ def run_backtest(submission_dir: Path, combined_data: pd.DataFrame, fee: float, 
     if "token_2/fiat" in first_prices and initial_balances["token_2"] > 0:
         initial_portfolio_value += initial_balances["token_2"] * first_prices["token_2/fiat"]
 
+    trader.equity_history = [initial_portfolio_value]
     result = pd.DataFrame(
         columns=["id", "timestamp", "pair", "side", "qty"],
     )
@@ -47,6 +175,7 @@ def run_backtest(submission_dir: Path, combined_data: pd.DataFrame, fee: float, 
             data_dict = row.to_dict()
             # Add fee information to market data so strategies can access it
             market_data[pair] = data_dict
+            trader.update_market(pair, data_dict)
 
         # Get strategy decision based on all available market data and current balances
         actions: list[dict] | None = strat_mod.on_data(market_data, balances)
@@ -56,6 +185,7 @@ def run_backtest(submission_dir: Path, combined_data: pd.DataFrame, fee: float, 
 
         # Add action dictionary to result DataFrame
         for action in actions:
+            trader.execute(action)
             action["timestamp"] = timestamp
             action["id"] = str(uuid.uuid4())
             result = pd.concat([result, pd.DataFrame([action])], ignore_index=True)
