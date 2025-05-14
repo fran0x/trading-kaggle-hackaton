@@ -5,15 +5,34 @@
 DATA        := "data"
 
 # Default time range
-START_TS    := "1743292800000"   # 2025‑03‑30
-END_TS      := "1743379200000"   # 2025‑03‑31
+
+# dataset00
+# START_TS    := "1746057600000"   # 2025‑05‑01
+# END_TS      := "1746144000000"   # 2025‑05‑02
+
+# dataset01
+# START_TS    := "1738368000000"   # 2025‑02‑01
+# END_TS      := "1743465600000"   # 2025‑04‑01
+
+# dataset02
+# START_TS    := "1612137600000"   # 2021‑02‑01
+# END_TS      := "1617235200000"   # 2021‑04‑01
+
+# dataset03
+START_TS    := "1675209600000"   # 2023‑02‑01
+END_TS      := "1680307200000"   # 2023‑04‑01
+
 TIMEFRAME   := "1m"
 
 # Default trading fees
 FEE := "2"  # In basis points (2 = 0.02%)
 
 # Default assets and balances
-TOKEN_1 := "ETH"
+# TOKEN_1 := "ETH"
+# TOKEN_2 := "BTC" 
+# FIAT    := "USDT"
+
+TOKEN_1 := "SOL"
 TOKEN_2 := "BTC" 
 FIAT    := "USDT"
 
@@ -25,10 +44,9 @@ FIAT_BALANCE    := "500000"
 TEAM        := "alpha"
 
 # Default ratios for solution file
-
-PUBLIC_RATIO  := "0.3"
-PRIVATE_RATIO := "0.7"
-IGNORED_RATIO  := "0.0"
+PUBLIC_RATIO  := "1."
+PRIVATE_RATIO := "0."
+IGNORED_RATIO  := "0."
 
 ###########
 # RECIPES #
@@ -79,26 +97,25 @@ download token1=TOKEN_1 token2=TOKEN_2 fiat=FIAT:
     # Download token1/token2 data
     python scripts/download.py "{{token1}}/{{token2}}" --start {{START_TS}} --end {{END_TS}} \
         --output {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.csv
-    
+
     echo "Download complete for {{token1}}, {{token2}}, and {{fiat}}."
 
     echo "Merging data files..."
-
     python scripts/merge.py \
         {{DATA}}/${TOKEN1_LC}${FIAT_LC}_{{TIMEFRAME}}.csv \
         {{DATA}}/${TOKEN2_LC}${FIAT_LC}_{{TIMEFRAME}}.csv \
         {{DATA}}/${TOKEN1_LC}${TOKEN2_LC}_{{TIMEFRAME}}.csv \
         --output {{DATA}}/test.csv
-
+        --token1 {{token1}} \
+        --token2 {{token2}} \
+        --fiat {{fiat}}
     echo "Data files merged into {{DATA}}/test.csv"
 
     echo "Generating a solution file..."
-
     python scripts/solution.py {{DATA}}/test.csv {{DATA}}/solution.csv \
         --public-ratio {{PUBLIC_RATIO}} \
         --private-ratio {{PRIVATE_RATIO}} \
         --ignored-ratio {{IGNORED_RATIO}}
-
     echo "Solution file generated at {{DATA}}/solution.csv"
 
 # archive the trading strategy

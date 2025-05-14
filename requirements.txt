@@ -5,3 +5,4 @@ scipy>=1.13
 ccxt>=4.2
 backtrader>=1.9
 pyarrow>=16
+pyrate_limiter>=2.6.0
